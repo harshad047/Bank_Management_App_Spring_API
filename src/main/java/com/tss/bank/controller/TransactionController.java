@@ -15,6 +15,7 @@ import com.tss.bank.dto.response.TransactionResponse;
 import com.tss.bank.dto.response.AccountStatementResponse;
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.service.TransactionService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -29,6 +30,9 @@ public class TransactionController {
 
     @Autowired
     private TransactionService transactionService;
+
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Core Transaction Operations
     @PostMapping("/deposit")
@@ -65,6 +69,7 @@ public class TransactionController {
     @GetMapping("/account/{accountId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getAccountTransactions(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         List<TransactionResponse> transactions = transactionService.getAccountTransactions(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account transactions retrieved successfully", transactions));
     }
@@ -72,6 +77,7 @@ public class TransactionController {
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getUserTransactions(@PathVariable Integer userId) {
+        authorizationService.validateUserAccess(userId);
         List<TransactionResponse> transactions = transactionService.getUserTransactions(userId);
         return ResponseEntity.ok(new ApiResponse<>(true, "User transactions retrieved successfully", transactions));
     }
@@ -82,6 +88,7 @@ public class TransactionController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         AccountStatementResponse statement = transactionService.generateAccountStatement(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account statement generated successfully", statement));
     }

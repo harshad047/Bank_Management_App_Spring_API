@@ -13,6 +13,7 @@ import com.tss.bank.dto.request.FixedDepositRequest;
 import com.tss.bank.dto.response.FixedDepositResponse;
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.service.FixedDepositService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -27,6 +28,9 @@ public class FixedDepositController {
 
     @Autowired
     private FixedDepositService fixedDepositService;
+
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Main Operations
     @PostMapping
@@ -47,6 +51,7 @@ public class FixedDepositController {
     @GetMapping("/account/{accountId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<FixedDepositResponse>>> getAccountFixedDeposits(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         List<FixedDepositResponse> fixedDeposits = fixedDepositService.getAccountFixedDeposits(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account fixed deposits retrieved successfully", fixedDeposits));
     }
@@ -54,6 +59,7 @@ public class FixedDepositController {
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<FixedDepositResponse>>> getUserFixedDeposits(@PathVariable Integer userId) {
+        authorizationService.validateUserAccess(userId);
         List<FixedDepositResponse> fixedDeposits = fixedDepositService.getUserFixedDeposits(userId);
         return ResponseEntity.ok(new ApiResponse<>(true, "User fixed deposits retrieved successfully", fixedDeposits));
     }
@@ -120,6 +126,7 @@ public class FixedDepositController {
     @GetMapping("/account/{accountId}/total-active")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BigDecimal>> getTotalActiveDeposits(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal totalActive = fixedDepositService.getTotalActiveDeposits(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total active deposits retrieved successfully", totalActive));
     }

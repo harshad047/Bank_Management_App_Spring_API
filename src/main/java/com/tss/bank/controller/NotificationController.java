@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.service.NotificationService;
+import com.tss.bank.service.AuthorizationService;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -23,6 +24,9 @@ public class NotificationController {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Send Notifications
     @PostMapping("/send/user/{userId}")

@@ -25,6 +25,7 @@ import com.tss.bank.repository.BranchRepository;
 import com.tss.bank.repository.UserRepository;
 import com.tss.bank.service.MappingService;
 import com.tss.bank.service.UserService;
+import com.tss.bank.service.EmailService;
 
 @Service
 @Transactional
@@ -41,6 +42,9 @@ public class UserServiceImpl implements UserService {
     
     @Autowired
     private BranchRepository branchRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     @Override
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -189,6 +193,20 @@ public class UserServiceImpl implements UserService {
         user.setRejectionReason(null);
         
         User approvedUser = userRepository.save(user);
+        
+        // Send approval email notification
+        try {
+            String userName = (user.getFirstName() != null ? user.getFirstName() : "") + 
+                            (user.getLastName() != null ? " " + user.getLastName() : "");
+            if (userName.trim().isEmpty()) {
+                userName = user.getUsername();
+            }
+            emailService.sendUserApprovalEmail(user.getEmail(), userName.trim());
+        } catch (Exception e) {
+            // Log the error but don't fail the approval process
+            System.err.println("Failed to send approval email: " + e.getMessage());
+        }
+        
         return mappingService.map(approvedUser, UserResponse.class);
     }
 
@@ -207,6 +225,20 @@ public class UserServiceImpl implements UserService {
         user.setRejectionReason(reason);
         
         User rejectedUser = userRepository.save(user);
+        
+        // Send rejection email notification
+        try {
+            String userName = (user.getFirstName() != null ? user.getFirstName() : "") + 
+                            (user.getLastName() != null ? " " + user.getLastName() : "");
+            if (userName.trim().isEmpty()) {
+                userName = user.getUsername();
+            }
+            emailService.sendUserRejectionEmail(user.getEmail(), userName.trim(), reason);
+        } catch (Exception e) {
+            // Log the error but don't fail the rejection process
+            System.err.println("Failed to send rejection email: " + e.getMessage());
+        }
+        
         return mappingService.map(rejectedUser, UserResponse.class);
     }
 

@@ -12,6 +12,7 @@ import com.tss.bank.dto.request.BeneficiaryRequest;
 import com.tss.bank.dto.response.BeneficiaryResponse;
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.service.BeneficiaryService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -25,6 +26,9 @@ public class BeneficiaryController {
 
     @Autowired
     private BeneficiaryService beneficiaryService;
+
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Main Operations
     @PostMapping
@@ -49,6 +53,7 @@ public class BeneficiaryController {
     public ResponseEntity<ApiResponse<String>> deleteBeneficiary(
             @PathVariable Integer beneficiaryId,
             @PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         beneficiaryService.deleteBeneficiary(beneficiaryId, accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Beneficiary deleted successfully", "Beneficiary removed"));
     }
@@ -64,6 +69,7 @@ public class BeneficiaryController {
     @GetMapping("/account/{accountId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<BeneficiaryResponse>>> getAccountBeneficiaries(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         List<BeneficiaryResponse> beneficiaries = beneficiaryService.getAccountBeneficiaries(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account beneficiaries retrieved successfully", beneficiaries));
     }
@@ -73,6 +79,7 @@ public class BeneficiaryController {
     public ResponseEntity<ApiResponse<Boolean>> validateBeneficiary(
             @PathVariable Integer accountId,
             @PathVariable String beneficiaryAccountNumber) {
+        authorizationService.validateAccountAccess(accountId);
         boolean isValid = beneficiaryService.validateBeneficiary(accountId, beneficiaryAccountNumber);
         return ResponseEntity.ok(new ApiResponse<>(true, "Beneficiary validation completed", isValid));
     }
@@ -102,6 +109,7 @@ public class BeneficiaryController {
     @GetMapping("/account/{accountId}/count")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Long>> getBeneficiaryCount(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         long count = beneficiaryService.getBeneficiaryCount(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Beneficiary count retrieved successfully", count));
     }
