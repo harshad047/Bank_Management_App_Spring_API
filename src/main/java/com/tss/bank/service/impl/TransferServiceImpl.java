@@ -77,6 +77,10 @@ public class TransferServiceImpl implements TransferService {
         
         Account toAccount = accountRepository.findByAccountNumber(request.getToAccountNumber())
                 .orElseThrow(() -> new TransferApiException("Destination account not found"));
+
+        if (fromAccount.getAccountNumber().equals(toAccount.getAccountNumber())) {
+            throw new TransferApiException("Source and destination accounts cannot be the same");
+        }
         
         // Check account statuses
         if (fromAccount.getStatus() != Account.Status.ACTIVE) {

@@ -45,6 +45,7 @@ public class AccountController {
     @GetMapping("/{accountId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<AccountResponse>> getAccountDetails(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         AccountResponse accountResponse = accountService.getAccountDetails(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account details retrieved successfully", accountResponse));
     }
@@ -67,6 +68,7 @@ public class AccountController {
     @PostMapping("/balance-inquiry")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BalanceInquiryResponse>> checkBalance(@Valid @RequestBody BalanceInquiryRequest request) {
+        authorizationService.validateAccountAccess(request.getAccountId());
         BalanceInquiryResponse balanceResponse = accountService.checkBalance(request);
         return ResponseEntity.ok(new ApiResponse<>(true, "Balance inquiry completed successfully", balanceResponse));
     }
@@ -75,6 +77,7 @@ public class AccountController {
     @GetMapping("/{accountId}/balance/available")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BigDecimal>> getAvailableBalance(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal balance = accountService.getAvailableBalance(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Available balance retrieved successfully", balance));
     }
@@ -82,6 +85,7 @@ public class AccountController {
     @GetMapping("/{accountId}/balance/total")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BigDecimal>> getTotalBalance(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal balance = accountService.getTotalBalance(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total balance retrieved successfully", balance));
     }
@@ -126,6 +130,7 @@ public class AccountController {
     @GetMapping("/{accountId}/status")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Boolean>> isAccountActive(@PathVariable Integer accountId) {
+        authorizationService.validateAccountAccess(accountId);
         boolean isActive = accountService.isAccountActive(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Account status retrieved successfully", isActive));
     }
@@ -145,6 +150,7 @@ public class AccountController {
     public ResponseEntity<ApiResponse<Boolean>> hasMinimumBalance(
             @PathVariable Integer accountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(accountId);
         boolean hasMinBalance = accountService.hasMinimumBalance(accountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Minimum balance check completed", hasMinBalance));
     }

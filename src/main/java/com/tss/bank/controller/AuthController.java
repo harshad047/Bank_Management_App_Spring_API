@@ -146,6 +146,20 @@ public class AuthController {
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
                     
+                    // Check user status before sending OTP
+                    if (user.getStatus() != User.Status.ACTIVE) {
+                        String errorMessage = "Account is not active. Current status: " + user.getStatus();
+                        if (user.getStatus() == User.Status.PENDING) {
+                            errorMessage = "Your account is pending for approval.";
+                        } else if (user.getStatus() == User.Status.REJECTED) {
+                            errorMessage = "Your account has been rejected.";
+                        } else if (user.getStatus() == User.Status.INACTIVE) {
+                            errorMessage = "Your account is inactive. Please contact support.";
+                        }
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body(new ApiResponse<>(false, errorMessage, null));
+                    }
+
                     // Generate and send OTP
                     otpService.generateAndSendOTP(user.getEmail(), OTP.OTPType.LOGIN);
                     
