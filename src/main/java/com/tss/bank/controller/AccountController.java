@@ -14,6 +14,7 @@ import com.tss.bank.dto.response.AccountResponse;
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.dto.response.BalanceInquiryResponse;
 import com.tss.bank.service.AccountService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -27,12 +28,16 @@ public class AccountController {
 
     @Autowired
     private AccountService accountService;
+    
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Account Management
     @PostMapping
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount(@Valid @RequestBody AccountCreationRequest request) {
-        AccountResponse accountResponse = accountService.createAccount(request);
+        Integer userId = authorizationService.getCurrentUserId();
+        AccountResponse accountResponse = accountService.createAccount(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Account created successfully", accountResponse));
     }
@@ -44,8 +49,16 @@ public class AccountController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Account details retrieved successfully", accountResponse));
     }
 
-    @GetMapping("/user/{userId}")
+    @GetMapping("/my-accounts")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<AccountResponse>>> getMyAccounts() {
+        Integer userId = authorizationService.getCurrentUserId();
+        List<AccountResponse> accounts = accountService.getUserAccounts(userId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "User accounts retrieved successfully", accounts));
+    }
+
+    @GetMapping("/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<AccountResponse>>> getUserAccounts(@PathVariable Integer userId) {
         List<AccountResponse> accounts = accountService.getUserAccounts(userId);
         return ResponseEntity.ok(new ApiResponse<>(true, "User accounts retrieved successfully", accounts));
@@ -73,8 +86,16 @@ public class AccountController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Total balance retrieved successfully", balance));
     }
 
-    @GetMapping("/user/{userId}/total-balance")
+    @GetMapping("/my-total-balance")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<BigDecimal>> getMyTotalBalance() {
+        Integer userId = authorizationService.getCurrentUserId();
+        BigDecimal totalBalance = accountService.getTotalBalanceByUserId(userId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Total user balance retrieved successfully", totalBalance));
+    }
+
+    @GetMapping("/user/{userId}/total-balance")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BigDecimal>> getTotalBalanceByUser(@PathVariable Integer userId) {
         BigDecimal totalBalance = accountService.getTotalBalanceByUserId(userId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total user balance retrieved successfully", totalBalance));

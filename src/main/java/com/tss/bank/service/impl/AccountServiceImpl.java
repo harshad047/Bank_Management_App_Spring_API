@@ -50,10 +50,10 @@ public class AccountServiceImpl implements AccountService {
     private static final BigDecimal MINIMUM_BALANCE = new BigDecimal("500.00");
 
     @Override
-    public AccountResponse createAccount(AccountCreationRequest request) {
+    public AccountResponse createAccount(AccountCreationRequest request, Integer userId) {
         // Validate user exists
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new AccountApiException("User not found with ID: " + request.getUserId()));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AccountApiException("User not found with ID: " + userId));
         
         // Check if user is active
         if (user.getStatus() != User.Status.ACTIVE) {

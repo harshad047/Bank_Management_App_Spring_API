@@ -15,6 +15,7 @@ import com.tss.bank.dto.response.TransferResponse;
 import com.tss.bank.dto.response.TransferConfirmationResponse;
 import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.service.TransferService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -30,10 +31,15 @@ public class TransferController {
     @Autowired
     private TransferService transferService;
 
+    @Autowired
+    private AuthorizationService authorizationService;
+
     // Fund Transfer Operations
     @PostMapping("/initiate")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TransferResponse>> initiateTransfer(@Valid @RequestBody TransferRequest request) {
+        // Validate account ownership for transfer
+        authorizationService.validateAccountOwnershipForTransfer(request.getFromAccountId(), request.getToAccountNumber());
         TransferResponse transferResponse = transferService.initiateTransfer(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Transfer initiated successfully", transferResponse));
@@ -75,6 +81,7 @@ public class TransferController {
     public ResponseEntity<ApiResponse<Boolean>> validateTransferLimits(
             @PathVariable Integer fromAccountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(fromAccountId);
         boolean isValid = transferService.validateTransferLimits(fromAccountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Transfer limits validation completed", isValid));
     }
@@ -84,6 +91,7 @@ public class TransferController {
     public ResponseEntity<ApiResponse<Boolean>> validateDailyTransferLimit(
             @PathVariable Integer fromAccountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(fromAccountId);
         boolean isValid = transferService.validateDailyTransferLimit(fromAccountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Daily transfer limit validation completed", isValid));
     }
@@ -93,6 +101,7 @@ public class TransferController {
     public ResponseEntity<ApiResponse<Boolean>> isTransferAllowed(
             @PathVariable Integer fromAccountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(fromAccountId);
         boolean isAllowed = transferService.isTransferAllowed(fromAccountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Transfer allowance check completed", isAllowed));
     }
@@ -174,6 +183,7 @@ public class TransferController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal totalAmount = transferService.getTotalTransferredAmount(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total transferred amount retrieved successfully", totalAmount));
     }
@@ -183,6 +193,7 @@ public class TransferController {
     public ResponseEntity<ApiResponse<BigDecimal>> getDailyTransferAmount(
             @PathVariable Integer accountId,
             @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal dailyAmount = transferService.getDailyTransferAmount(accountId, date);
         return ResponseEntity.ok(new ApiResponse<>(true, "Daily transfer amount retrieved successfully", dailyAmount));
     }
@@ -192,6 +203,7 @@ public class TransferController {
     public ResponseEntity<ApiResponse<BigDecimal>> getMonthlyTransferAmount(
             @PathVariable Integer accountId,
             @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal monthlyAmount = transferService.getMonthlyTransferAmount(accountId, date);
         return ResponseEntity.ok(new ApiResponse<>(true, "Monthly transfer amount retrieved successfully", monthlyAmount));
     }
@@ -202,6 +214,7 @@ public class TransferController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         long count = transferService.getTransferCount(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Transfer count retrieved successfully", count));
     }

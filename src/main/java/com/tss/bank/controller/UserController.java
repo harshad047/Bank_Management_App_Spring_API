@@ -14,6 +14,7 @@ import com.tss.bank.dto.response.ApiResponse;
 import com.tss.bank.dto.response.UserResponse;
 import com.tss.bank.entity.User;
 import com.tss.bank.service.UserService;
+import com.tss.bank.service.AuthorizationService;
 
 import jakarta.validation.Valid;
 
@@ -26,10 +27,29 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private AuthorizationService authorizationService;
 
     // Profile Management
-    @PutMapping("/{userId}/profile")
+    @PutMapping("/profile")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(@Valid @RequestBody UserProfileUpdateRequest request) {
+        Integer userId = authorizationService.getCurrentUserId();
+        UserResponse userResponse = userService.updateProfile(userId, request);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Profile updated successfully", userResponse));
+    }
+
+    @GetMapping("/profile")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> getMyProfile() {
+        Integer userId = authorizationService.getCurrentUserId();
+        UserResponse userResponse = userService.getUserById(userId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Profile retrieved successfully", userResponse));
+    }
+
+    @PutMapping("/{userId}/profile")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
             @PathVariable Integer userId,
             @Valid @RequestBody UserProfileUpdateRequest request) {
@@ -37,8 +57,20 @@ public class UserController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Profile updated successfully", userResponse));
     }
 
-    @PostMapping("/{userId}/change-password")
+    @PostMapping("/change-password")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> changeMyPassword(@Valid @RequestBody PasswordChangeRequest request) {
+        Integer userId = authorizationService.getCurrentUserId();
+        boolean success = userService.changePassword(userId, request);
+        if (success) {
+            return ResponseEntity.ok(new ApiResponse<>(true, "Password changed successfully", "Password updated"));
+        }
+        return ResponseEntity.badRequest()
+                .body(new ApiResponse<>(false, "Failed to change password", null));
+    }
+
+    @PostMapping("/{userId}/change-password")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> changePassword(
             @PathVariable Integer userId,
             @Valid @RequestBody PasswordChangeRequest request) {

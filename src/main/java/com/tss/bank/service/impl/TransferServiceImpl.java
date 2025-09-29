@@ -26,6 +26,7 @@ import com.tss.bank.repository.TransferRepository;
 import com.tss.bank.service.AccountService;
 import com.tss.bank.service.MappingService;
 import com.tss.bank.service.TransferService;
+import com.tss.bank.service.AuthorizationService;
 
 @Service
 @Transactional
@@ -43,6 +44,9 @@ public class TransferServiceImpl implements TransferService {
     @Autowired
     private MappingService mappingService;
     
+    @Autowired
+    private AuthorizationService authorizationService;
+    
     private static final BigDecimal DAILY_TRANSFER_LIMIT = new BigDecimal("100000.00");
     private static final BigDecimal PER_TRANSFER_LIMIT = new BigDecimal("50000.00");
     private static final BigDecimal MONTHLY_TRANSFER_LIMIT = new BigDecimal("500000.00");
@@ -52,8 +56,20 @@ public class TransferServiceImpl implements TransferService {
 
     @Override
     public TransferResponse initiateTransfer(TransferRequest request) {
-        if (!validateTransfer(request)) {
-            throw new TransferApiException("Invalid transfer request");
+        // Validate account ownership at service layer
+        authorizationService.validateAccountOwnershipForTransfer(request.getFromAccountId(), request.getToAccountNumber());
+        
+        // Detailed validation with specific error messages
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new TransferApiException("Transfer amount must be greater than zero");
+        }
+        
+        if (request.getFromAccountId() == null) {
+            throw new TransferApiException("Source account ID is required");
+        }
+        
+        if (request.getToAccountNumber() == null || request.getToAccountNumber().trim().isEmpty()) {
+            throw new TransferApiException("Destination account number is required");
         }
         
         Account fromAccount = accountRepository.findById(request.getFromAccountId())
@@ -62,16 +78,30 @@ public class TransferServiceImpl implements TransferService {
         Account toAccount = accountRepository.findByAccountNumber(request.getToAccountNumber())
                 .orElseThrow(() -> new TransferApiException("Destination account not found"));
         
+        // Check account statuses
+        if (fromAccount.getStatus() != Account.Status.ACTIVE) {
+            throw new TransferApiException("Source account is not active");
+        }
+        
+        if (toAccount.getStatus() != Account.Status.ACTIVE) {
+            throw new TransferApiException("Destination account is not active");
+        }
+        
         // Validate transfer limits
         if (!validateTransferLimits(request.getFromAccountId(), request.getAmount())) {
-            throw new TransferApiException("Transfer amount exceeds per-transaction limit");
+            throw new TransferApiException("Transfer amount exceeds per-transaction limit of " + PER_TRANSFER_LIMIT);
         }
         
         if (!validateDailyTransferLimit(request.getFromAccountId(), request.getAmount())) {
-            throw new TransferApiException("Daily transfer limit exceeded");
+            throw new TransferApiException("Daily transfer limit of " + DAILY_TRANSFER_LIMIT + " exceeded");
         }
         
-        // Process transfer directly without OTP for testing
+        // Check sufficient balance
+        if (!accountService.hasMinimumBalance(request.getFromAccountId(), request.getAmount())) {
+            throw new TransferApiException("Insufficient balance in source account");
+        }
+        
+        // Process transfer directly
         processTransfer(fromAccount.getAccountId(), toAccount.getAccountId(), 
                        request.getAmount(), request.getDescription());
         
@@ -85,6 +115,7 @@ public class TransferServiceImpl implements TransferService {
                 .transferTime(new Date())
                 .transferDate(new Date())
                 .status(Transfer.Status.COMPLETED)
+                .transactionReference(generateTransferReference())
                 .build();
         
         Transfer savedTransfer = transferRepository.save(transfer);
@@ -145,7 +176,28 @@ public class TransferServiceImpl implements TransferService {
 
     @Override
     public boolean validateTransfer(TransferRequest request) {
-        if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        // Validate amount is positive
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        
+        // Validate from account ID
+        if (request.getFromAccountId() == null) {
+            return false;
+        }
+        
+        // Validate to account number
+        if (request.getToAccountNumber() == null || request.getToAccountNumber().trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check if source account exists
+        if (!accountRepository.existsById(request.getFromAccountId())) {
+            return false;
+        }
+        
+        // Check if destination account exists
+        if (!accountRepository.existsByAccountNumber(request.getToAccountNumber())) {
             return false;
         }
         
@@ -181,11 +233,35 @@ public class TransferServiceImpl implements TransferService {
     @Override
     @Transactional
     public void processTransfer(Integer fromAccountId, Integer toAccountId, BigDecimal amount, String description) {
-        // Debit from source account
-        accountService.debitAmount(fromAccountId, amount, "Transfer: " + description);
-        
-        // Credit to destination account
-        accountService.creditAmount(toAccountId, amount, "Transfer received: " + description);
+        try {
+            // Validate accounts exist before processing
+            Account fromAccount = accountRepository.findById(fromAccountId)
+                    .orElseThrow(() -> new TransferApiException("Source account not found"));
+            Account toAccount = accountRepository.findById(toAccountId)
+                    .orElseThrow(() -> new TransferApiException("Destination account not found"));
+            
+            // Check if accounts are active
+            if (fromAccount.getStatus() != Account.Status.ACTIVE) {
+                throw new TransferApiException("Source account is not active");
+            }
+            if (toAccount.getStatus() != Account.Status.ACTIVE) {
+                throw new TransferApiException("Destination account is not active");
+            }
+            
+            // Validate sufficient balance
+            if (!accountService.hasMinimumBalance(fromAccountId, amount)) {
+                throw new TransferApiException("Insufficient balance in source account");
+            }
+            
+            // Debit from source account
+            accountService.debitAmount(fromAccountId, amount, "Transfer to " + toAccount.getAccountNumber() + ": " + description);
+            
+            // Credit to destination account
+            accountService.creditAmount(toAccountId, amount, "Transfer from " + fromAccount.getAccountNumber() + ": " + description);
+            
+        } catch (Exception e) {
+            throw new TransferApiException("Transfer processing failed: " + e.getMessage());
+        }
     }
 
     @Override

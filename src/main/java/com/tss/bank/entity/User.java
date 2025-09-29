@@ -46,7 +46,7 @@ public class User {
     @Column(length = 255)
     private String address;
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private Status status;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -61,6 +61,11 @@ public class User {
     private Date dateOfBirth;
     @Column(name = "created_at")
     private Date createdAt;
+    @Column(name = "email_verified")
+    @Builder.Default
+    private Boolean emailVerified = false;
+    @Column(name = "email_verified_at")
+    private Date emailVerifiedAt;
 
     @ManyToOne
     @JoinColumn(name = "branch_id")
@@ -85,7 +90,7 @@ public class User {
     private List<UserEnquiry> enquiries;
 
     public enum Status {
-        ACTIVE, INACTIVE, PENDING, REJECTED
+        ACTIVE, INACTIVE, PENDING, REJECTED, EMAIL_UNVERIFIED
     }
 
     public enum Role {

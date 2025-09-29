@@ -36,6 +36,8 @@ public class FixedDepositController {
     @PostMapping
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<FixedDepositResponse>> createFixedDeposit(@Valid @RequestBody FixedDepositRequest request) {
+        // Validate account ownership before creating FD
+        authorizationService.validateFDAccountOwnership(request.getAccountId());
         FixedDepositResponse fdResponse = fixedDepositService.createFixedDeposit(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Fixed deposit created successfully", fdResponse));
@@ -44,6 +46,8 @@ public class FixedDepositController {
     @GetMapping("/{fdId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<FixedDepositResponse>> getFixedDepositDetails(@PathVariable Integer fdId) {
+        // Validate FD ownership before retrieving details
+        authorizationService.validateFixedDepositAccess(fdId);
         FixedDepositResponse fdResponse = fixedDepositService.getFixedDepositDetails(fdId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Fixed deposit details retrieved successfully", fdResponse));
     }
@@ -69,6 +73,8 @@ public class FixedDepositController {
     public ResponseEntity<ApiResponse<FixedDepositResponse>> prematureWithdrawal(
             @PathVariable Integer fdId,
             @RequestParam String reason) {
+        // Validate FD ownership before premature withdrawal
+        authorizationService.validateFixedDepositAccess(fdId);
         FixedDepositResponse fdResponse = fixedDepositService.prematureWithdrawal(fdId, reason);
         return ResponseEntity.ok(new ApiResponse<>(true, "Premature withdrawal processed successfully", fdResponse));
     }
@@ -76,6 +82,8 @@ public class FixedDepositController {
     @PostMapping("/{fdId}/mature")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<FixedDepositResponse>> matureFixedDeposit(@PathVariable Integer fdId) {
+        // Validate FD ownership before maturity processing
+        authorizationService.validateFixedDepositAccess(fdId);
         FixedDepositResponse fdResponse = fixedDepositService.matureFixedDeposit(fdId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Fixed deposit matured successfully", fdResponse));
     }
@@ -126,6 +134,7 @@ public class FixedDepositController {
     @GetMapping("/account/{accountId}/total-active")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<BigDecimal>> getTotalActiveDeposits(@PathVariable Integer accountId) {
+        // Validate account ownership before retrieving FD analytics
         authorizationService.validateAccountAccess(accountId);
         BigDecimal totalActive = fixedDepositService.getTotalActiveDeposits(accountId);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total active deposits retrieved successfully", totalActive));

@@ -22,7 +22,6 @@ public class TransferRequest {
     private Integer fromAccountId;
     
     @NotBlank(message = "To account number is required")
-    @Pattern(regexp = "^[0-9]{10,20}$", message = "Account number must be 10-20 digits")
     private String toAccountNumber;
     
     @NotBlank(message = "IFSC code is required")

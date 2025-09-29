@@ -26,6 +26,8 @@ import com.tss.bank.repository.UserRepository;
 import com.tss.bank.service.MappingService;
 import com.tss.bank.service.UserService;
 import com.tss.bank.service.EmailService;
+import com.tss.bank.service.OTPService;
+import com.tss.bank.entity.OTP;
 
 @Service
 @Transactional
@@ -45,6 +47,10 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private OTPService otpService;
+    
 
     @Override
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -83,12 +89,24 @@ public class UserServiceImpl implements UserService {
                 .address(request.getAddress())
                 .dateOfBirth(request.getDateOfBirth())
                 .branch(branch)
-                .status(User.Status.PENDING)
                 .role(User.Role.USER)
-                .createdAt(new Date(System.currentTimeMillis()))
                 .build();
         
+        // Set initial status and creation date
+        user.setStatus(User.Status.EMAIL_UNVERIFIED);
+        user.setCreatedAt(Date.valueOf(LocalDate.now()));
+        user.setEmailVerified(false);
+        
         User savedUser = userRepository.save(user);
+        
+        // Send email verification OTP
+        try {
+            otpService.generateAndSendOTP(user.getEmail(), OTP.OTPType.EMAIL_VERIFICATION);
+        } catch (Exception e) {
+            // Log error but don't fail registration
+            System.err.println("Failed to send verification email: " + e.getMessage());
+        }
+        
         return mappingService.map(savedUser, UserResponse.class);
     }
 

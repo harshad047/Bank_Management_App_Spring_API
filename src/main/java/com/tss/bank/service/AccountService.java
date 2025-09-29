@@ -16,7 +16,7 @@ import com.tss.bank.entity.Account;
 public interface AccountService {
     
     // Account Management
-    AccountResponse createAccount(AccountCreationRequest request);
+    AccountResponse createAccount(AccountCreationRequest request, Integer userId);
     AccountResponse getAccountDetails(Integer accountId);
     List<AccountResponse> getUserAccounts(Integer userId);
     BalanceInquiryResponse checkBalance(BalanceInquiryRequest request);

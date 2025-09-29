@@ -38,6 +38,8 @@ public class TransactionController {
     @PostMapping("/deposit")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TransactionResponse>> processDeposit(@Valid @RequestBody TransactionRequest request) {
+        // Validate account ownership before processing deposit
+        authorizationService.validateAccountOwnershipForTransaction(request.getAccountId());
         TransactionResponse transactionResponse = transactionService.processDeposit(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Deposit processed successfully", transactionResponse));
@@ -46,6 +48,8 @@ public class TransactionController {
     @PostMapping("/withdrawal")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TransactionResponse>> processWithdrawal(@Valid @RequestBody TransactionRequest request) {
+        // Validate account ownership before processing withdrawal
+        authorizationService.validateAccountOwnershipForTransaction(request.getAccountId());
         TransactionResponse transactionResponse = transactionService.processWithdrawal(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Withdrawal processed successfully", transactionResponse));
@@ -106,6 +110,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<Boolean>> validateWithdrawalLimit(
             @PathVariable Integer accountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(accountId);
         boolean isValid = transactionService.validateWithdrawalLimit(accountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Withdrawal limit validation completed", isValid));
     }
@@ -115,6 +120,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<Boolean>> validateDailyLimit(
             @PathVariable Integer accountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(accountId);
         boolean isValid = transactionService.validateDailyLimit(accountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Daily limit validation completed", isValid));
     }
@@ -124,6 +130,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<Boolean>> isTransactionAllowed(
             @PathVariable Integer accountId,
             @PathVariable BigDecimal amount) {
+        authorizationService.validateAccountAccess(accountId);
         boolean isAllowed = transactionService.isTransactionAllowed(accountId, amount);
         return ResponseEntity.ok(new ApiResponse<>(true, "Transaction allowance check completed", isAllowed));
     }
@@ -145,6 +152,7 @@ public class TransactionController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal totalDebit = transactionService.getTotalDebitAmount(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total debit amount retrieved successfully", totalDebit));
     }
@@ -155,6 +163,7 @@ public class TransactionController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal totalCredit = transactionService.getTotalCreditAmount(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Total credit amount retrieved successfully", totalCredit));
     }
@@ -164,6 +173,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<BigDecimal>> getDailyTransactionAmount(
             @PathVariable Integer accountId,
             @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+        authorizationService.validateAccountAccess(accountId);
         BigDecimal dailyAmount = transactionService.getDailyTransactionAmount(accountId, date);
         return ResponseEntity.ok(new ApiResponse<>(true, "Daily transaction amount retrieved successfully", dailyAmount));
     }
@@ -174,6 +184,7 @@ public class TransactionController {
             @PathVariable Integer accountId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date fromDate,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date toDate) {
+        authorizationService.validateAccountAccess(accountId);
         long count = transactionService.getTransactionCount(accountId, fromDate, toDate);
         return ResponseEntity.ok(new ApiResponse<>(true, "Transaction count retrieved successfully", count));
     }

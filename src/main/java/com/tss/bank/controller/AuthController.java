@@ -20,6 +20,7 @@ import com.tss.bank.security.JwtUtil;
 import com.tss.bank.service.UserService;
 import com.tss.bank.service.AdminService;
 import com.tss.bank.service.OTPService;
+import com.tss.bank.service.EmailVerificationService;
 import com.tss.bank.entity.OTP;
 
 import jakarta.validation.Valid;
@@ -47,17 +48,97 @@ public class AuthController {
     @Autowired
     private OTPService otpService;
 
+    @Autowired
+    private EmailVerificationService emailVerificationService;
+
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody UserRegistrationRequest request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> register(@Valid @RequestBody UserRegistrationRequest request) {
         UserResponse userResponse = userService.registerUser(request);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("user", userResponse);
+        response.put("message", "Registration successful. Please check your email for verification OTP.");
+        response.put("nextStep", "verify-email");
+        
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ApiResponse<>(true, "User registered successfully", userResponse));
+                .body(new ApiResponse<>(true, "User registered successfully. Email verification required.", response));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyEmail(@Valid @RequestBody OTPVerificationRequest request) {
+        try {
+            boolean isVerified = emailVerificationService.verifyEmailWithOTP(request.getEmail(), request.getOtpCode());
+            
+            if (isVerified) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Email verified successfully. Your account is now pending admin approval.");
+                response.put("status", "PENDING");
+                
+                return ResponseEntity.ok(new ApiResponse<>(true, "Email verification successful", response));
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(false, "Invalid or expired OTP", null));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, "Email verification failed: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/resend-verification-otp")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resendVerificationOTP(@RequestParam String email) {
+        try {
+            emailVerificationService.resendVerificationOTP(email);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Verification OTP sent to your email");
+            response.put("email", maskEmail(email));
+            
+            return ResponseEntity.ok(new ApiResponse<>(true, "OTP sent successfully", response));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(false, "Failed to send OTP: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/admin-login")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> adminLogin(@Valid @RequestBody UserLoginRequest request) {
+        try {
+            // Admin login without OTP
+            boolean isAdminValid = adminService.validateAdminCredentials(request.getUsername(), request.getPassword());
+            
+            if (isAdminValid) {
+                Optional<Admin> adminOptional = adminService.findByUsername(request.getUsername());
+                if (adminOptional.isPresent()) {
+                    Admin admin = adminOptional.get();
+                    String role = admin.getIsSuperAdmin() != null && admin.getIsSuperAdmin() ? "SUPER_ADMIN" : "ADMIN";
+                    
+                    String token = jwtUtil.generateToken(admin.getUsername(), role, admin.getAdminId());
+                    
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("token", token);
+                    response.put("username", admin.getUsername());
+                    response.put("role", role);
+                    response.put("userId", admin.getAdminId());
+                    response.put("userType", "ADMIN");
+                    
+                    return ResponseEntity.ok(new ApiResponse<>(true, "Admin login successful", response));
+                }
+            }
+            
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, "Invalid admin credentials", null));
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, "Admin authentication failed: " + e.getMessage(), null));
+        }
     }
 
     @PostMapping("/login-step1")
     public ResponseEntity<ApiResponse<Map<String, Object>>> loginStep1(@Valid @RequestBody UserLoginRequest request) {
         try {
-            // First try to authenticate as user
+            // Only for users - with OTP verification
             boolean isUserValid = userService.validateCredentials(request.getUsername(), request.getPassword());
             
             if (isUserValid) {
@@ -77,29 +158,8 @@ public class AuthController {
                 }
             }
             
-            // If user authentication fails, try admin authentication
-            boolean isAdminValid = adminService.validateAdminCredentials(request.getUsername(), request.getPassword());
-            
-            if (isAdminValid) {
-                Optional<Admin> adminOptional = adminService.findByUsername(request.getUsername());
-                if (adminOptional.isPresent()) {
-                    Admin admin = adminOptional.get();
-                    
-                    // Generate and send OTP for admin
-                    otpService.generateAndSendOTP(admin.getEmail(), OTP.OTPType.LOGIN);
-                    
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("message", "OTP sent to your registered email");
-                    response.put("email", maskEmail(admin.getEmail()));
-                    response.put("nextStep", "verify-otp");
-                    response.put("userType", "ADMIN");
-                    
-                    return ResponseEntity.ok(new ApiResponse<>(true, "OTP sent successfully", response));
-                }
-            }
-            
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>(false, "Invalid credentials", null));
+                    .body(new ApiResponse<>(false, "Invalid user credentials", null));
             
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -118,7 +178,7 @@ public class AuthController {
                         .body(new ApiResponse<>(false, "Invalid or expired OTP", null));
             }
 
-            // Find user by email and generate JWT token
+            // Find user by email and generate JWT token (only for users, not admins)
             Optional<User> userOptional = userService.findByEmail(request.getEmail());
             if (userOptional.isPresent()) {
                 User user = userOptional.get();
@@ -133,25 +193,7 @@ public class AuthController {
                 response.put("userId", user.getUserId());
                 response.put("userType", "USER");
                 
-                return ResponseEntity.ok(new ApiResponse<>(true, "Login successful", response));
-            }
-
-            // Try admin if user not found
-            Optional<Admin> adminOptional = adminService.findByEmail(request.getEmail());
-            if (adminOptional.isPresent()) {
-                Admin admin = adminOptional.get();
-                String role = admin.getIsSuperAdmin() != null && admin.getIsSuperAdmin() ? "SUPER_ADMIN" : "ADMIN";
-                
-                String token = jwtUtil.generateToken(admin.getUsername(), role, admin.getAdminId());
-                
-                Map<String, Object> response = new HashMap<>();
-                response.put("token", token);
-                response.put("username", admin.getUsername());
-                response.put("role", role);
-                response.put("userId", admin.getAdminId());
-                response.put("userType", "ADMIN");
-                
-                return ResponseEntity.ok(new ApiResponse<>(true, "Admin login successful", response));
+                return ResponseEntity.ok(new ApiResponse<>(true, "User login successful", response));
             }
 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

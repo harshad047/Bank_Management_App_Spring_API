@@ -19,8 +19,7 @@ import java.math.BigDecimal;
 @Builder
 public class AccountCreationRequest {
     
-    @NotNull(message = "User ID is required")
-    private Integer userId;
+    // userId will be extracted from JWT token, not from request body
     
     @NotNull(message = "Account type is required")
     private Account.AccountType accountType;

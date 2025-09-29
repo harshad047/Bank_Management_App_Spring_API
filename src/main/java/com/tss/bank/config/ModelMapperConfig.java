@@ -18,8 +18,6 @@ public class ModelMapperConfig {
                 .setFieldMatchingEnabled(true)
                 .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE);
         
-        // Custom mappings can be added here if needed
-        // Example: mapper.addMappings(new UserPropertyMap());
         
         return mapper;
     }
